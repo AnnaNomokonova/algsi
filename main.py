@@ -240,7 +240,7 @@ class App(tk.Tk):
                         variable=self.func_var, value="1d").pack(anchor=tk.W)
         ttk.Radiobutton(
             frame,
-            text="f(x,y) = −0.0001·(sin(x)·sin(y)·exp(|100−√(x²+y²)/π|)+1)⁰·¹",
+            text="f(x,y) = −0.0001·|sin·sin·exp(…)+1|^0.1",
             variable=self.func_var, value="2d").pack(anchor=tk.W)
 
         ttk.Separator(frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=15)
