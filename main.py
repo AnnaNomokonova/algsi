@@ -26,22 +26,35 @@ def f2(x, y):
 
 # ─── Генетический алгоритм (с арифметическим кроссовером) ─────────────────────
 
+def _snapshot_indices(total, max_snapshots=8):
+    """Возвращает индексы поколений/итераций для снимков популяции."""
+    if total <= max_snapshots:
+        return list(range(total))
+    step = (total - 1) / (max_snapshots - 1)
+    return sorted(set(int(round(i * step)) for i in range(max_snapshots)))
+
+
 def genetic_algorithm(pop_size, generations, crossover_prob, mutation_prob, mutation_scale):
     """
     Минимизирует f(x) на [X_MIN, X_MAX].
     Модификация кроссовера: арифметический (выпуклая комбинация двух родителей).
-    Возвращает (лучший_x, лучший_y, история_лучших_значений).
+    Возвращает (лучший_x, лучший_y, история_лучших_значений, снимки_популяции).
     """
     # Инициализация
     population = np.random.uniform(X_MIN, X_MAX, pop_size)
     best_history = []
+    snap_idx = _snapshot_indices(generations)
+    snapshots = []  # [(gen, positions), ...]
 
-    for _ in range(generations):
+    for gen in range(generations):
         fitness = f(population)
 
         # Элитизм: сохраняем лучшего
         best_idx = np.argmin(fitness)
         best_x = population[best_idx]
+
+        if gen in snap_idx:
+            snapshots.append((gen, population.copy()))
 
         # Отбор турниром
         new_pop = [best_x]  # элита
@@ -70,24 +83,29 @@ def genetic_algorithm(pop_size, generations, crossover_prob, mutation_prob, muta
         best_history.append(f(best_x))
 
     best_idx = np.argmin(f(population))
-    return population[best_idx], f(population[best_idx]), best_history
+    return population[best_idx], f(population[best_idx]), best_history, snapshots
 
 # ─── Генетический алгоритм 2D ────────────────────────────────────────────────
 
 def genetic_algorithm_2d(pop_size, generations, crossover_prob, mutation_prob, mutation_scale):
     """
     Минимизирует f2(x, y) на [X2_MIN, X2_MAX] × [Y2_MIN, Y2_MAX].
-    Возвращает (лучший_x, лучший_y, лучшее_значение, история_лучших_значений).
+    Возвращает (лучший_x, лучший_y, лучшее_значение, история_лучших_значений, снимки_популяции).
     """
     pop_x = np.random.uniform(X2_MIN, X2_MAX, pop_size)
     pop_y = np.random.uniform(Y2_MIN, Y2_MAX, pop_size)
     best_history = []
+    snap_idx = _snapshot_indices(generations)
+    snapshots = []  # [(gen, xs, ys), ...]
 
-    for _ in range(generations):
+    for gen in range(generations):
         fitness = f2(pop_x, pop_y)
 
         best_idx = np.argmin(fitness)
         bx, by = pop_x[best_idx], pop_y[best_idx]
+
+        if gen in snap_idx:
+            snapshots.append((gen, pop_x.copy(), pop_y.copy()))
 
         new_x = [bx]
         new_y = [by]
@@ -119,7 +137,7 @@ def genetic_algorithm_2d(pop_size, generations, crossover_prob, mutation_prob, m
 
     vals = f2(pop_x, pop_y)
     best_idx = np.argmin(vals)
-    return pop_x[best_idx], pop_y[best_idx], vals[best_idx], best_history
+    return pop_x[best_idx], pop_y[best_idx], vals[best_idx], best_history, snapshots
 
 # ─── Роевой алгоритм PSO (с ограничением скорости) ───────────────────────────
 
@@ -127,7 +145,7 @@ def pso(swarm_size, iterations, c1, c2, w, vmax):
     """
     Минимизирует f(x) на [X_MIN, X_MAX].
     Модификация: ограничение скорости vmax уменьшается линейно (velocity clamping).
-    Возвращает (лучший_x, лучший_y, история_лучших_значений).
+    Возвращает (лучший_x, лучший_y, история_лучших_значений, снимки_позиций).
     """
     # Инициализация
     pos = np.random.uniform(X_MIN, X_MAX, swarm_size)
@@ -138,6 +156,8 @@ def pso(swarm_size, iterations, c1, c2, w, vmax):
     gbest_idx = np.argmin(pbest_val)
     gbest_pos = pbest_pos[gbest_idx]
     best_history = []
+    snap_idx = _snapshot_indices(iterations)
+    snapshots = []  # [(iter, positions), ...]
 
     for i in range(iterations):
         # Линейное уменьшение vmax (модификация ограничения скорости)
@@ -156,6 +176,9 @@ def pso(swarm_size, iterations, c1, c2, w, vmax):
         # Обновление позиций
         pos = np.clip(pos + vel, X_MIN, X_MAX)
 
+        if i in snap_idx:
+            snapshots.append((i, pos.copy()))
+
         # Обновление личного лучшего
         val = f(pos)
         improved = val < pbest_val
@@ -167,14 +190,14 @@ def pso(swarm_size, iterations, c1, c2, w, vmax):
         gbest_pos = pbest_pos[gbest_idx]
         best_history.append(pbest_val[gbest_idx])
 
-    return gbest_pos, pbest_val[gbest_idx], best_history
+    return gbest_pos, pbest_val[gbest_idx], best_history, snapshots
 
 # ─── Роевой алгоритм PSO 2D ──────────────────────────────────────────────────
 
 def pso_2d(swarm_size, iterations, c1, c2, w, vmax):
     """
     Минимизирует f2(x, y) на [X2_MIN, X2_MAX] × [Y2_MIN, Y2_MAX].
-    Возвращает (лучший_x, лучший_y, лучшее_значение, история_лучших_значений).
+    Возвращает (лучший_x, лучший_y, лучшее_значение, история_лучших_значений, снимки_позиций).
     """
     pos_x = np.random.uniform(X2_MIN, X2_MAX, swarm_size)
     pos_y = np.random.uniform(Y2_MIN, Y2_MAX, swarm_size)
@@ -189,6 +212,8 @@ def pso_2d(swarm_size, iterations, c1, c2, w, vmax):
     gbest_x = pbest_x[gbest_idx]
     gbest_y = pbest_y[gbest_idx]
     best_history = []
+    snap_idx = _snapshot_indices(iterations)
+    snapshots = []  # [(iter, xs, ys), ...]
 
     for i in range(iterations):
         current_vmax = max(vmax * (1 - i / iterations), 0.05 * vmax)
@@ -205,6 +230,9 @@ def pso_2d(swarm_size, iterations, c1, c2, w, vmax):
         pos_x = np.clip(pos_x + vel_x, X2_MIN, X2_MAX)
         pos_y = np.clip(pos_y + vel_y, Y2_MIN, Y2_MAX)
 
+        if i in snap_idx:
+            snapshots.append((i, pos_x.copy(), pos_y.copy()))
+
         val = f2(pos_x, pos_y)
         improved = val < pbest_val
         pbest_x[improved] = pos_x[improved]
@@ -216,7 +244,7 @@ def pso_2d(swarm_size, iterations, c1, c2, w, vmax):
         gbest_y = pbest_y[gbest_idx]
         best_history.append(pbest_val[gbest_idx])
 
-    return gbest_x, gbest_y, pbest_val[gbest_idx], best_history
+    return gbest_x, gbest_y, pbest_val[gbest_idx], best_history, snapshots
 
 # ─── GUI ──────────────────────────────────────────────────────────────────────
 
@@ -328,7 +356,7 @@ class ParamWindow(tk.Toplevel):
         try:
             if self.func == "2d":
                 if self.method == "ga":
-                    bx, by, bval, history = genetic_algorithm_2d(
+                    bx, by, bval, history, snapshots = genetic_algorithm_2d(
                         pop_size=self._get("pop_size", int),
                         generations=self._get("generations", int),
                         crossover_prob=self._get("crossover_prob"),
@@ -336,7 +364,7 @@ class ParamWindow(tk.Toplevel):
                         mutation_scale=self._get("mutation_scale"),
                     )
                 else:
-                    bx, by, bval, history = pso_2d(
+                    bx, by, bval, history, snapshots = pso_2d(
                         swarm_size=self._get("swarm_size", int),
                         iterations=self._get("iterations", int),
                         c1=self._get("c1"),
@@ -347,10 +375,10 @@ class ParamWindow(tk.Toplevel):
                 self.status.config(
                     text=f"Минимум: f({bx:.4f}, {by:.4f}) = {bval:.6f}",
                     foreground="green")
-                self._draw_2d(bx, by, bval, history)
+                self._draw_2d(bx, by, bval, history, snapshots)
             else:
                 if self.method == "ga":
-                    best_x, best_y, history = genetic_algorithm(
+                    best_x, best_y, history, snapshots = genetic_algorithm(
                         pop_size=self._get("pop_size", int),
                         generations=self._get("generations", int),
                         crossover_prob=self._get("crossover_prob"),
@@ -358,7 +386,7 @@ class ParamWindow(tk.Toplevel):
                         mutation_scale=self._get("mutation_scale"),
                     )
                 else:
-                    best_x, best_y, history = pso(
+                    best_x, best_y, history, snapshots = pso(
                         swarm_size=self._get("swarm_size", int),
                         iterations=self._get("iterations", int),
                         c1=self._get("c1"),
@@ -369,12 +397,12 @@ class ParamWindow(tk.Toplevel):
                 self.status.config(
                     text=f"Минимум: f({best_x:.4f}) = {best_y:.4f}",
                     foreground="green")
-                self._draw(best_x, best_y, history)
+                self._draw(best_x, best_y, history, snapshots)
         except (ValueError, Exception) as e:
             self.status.config(text=f"Ошибка: {e}", foreground="red")
             return
 
-    def _draw(self, best_x, best_y, history):
+    def _draw(self, best_x, best_y, history, snapshots):
         # Удаляем старый график, если есть
         for widget in self.right.winfo_children():
             widget.destroy()
@@ -385,12 +413,33 @@ class ParamWindow(tk.Toplevel):
         # График функции
         xs = np.linspace(X_MIN, X_MAX, 500)
         ax1.plot(xs, f(xs), color="royalblue", label="f(x) = x·sin(x)")
-        ax1.scatter([best_x], [best_y], color="red", zorder=5,
+
+        # Отображение популяции/роя по поколениям с цветовым градиентом
+        if snapshots:
+            cmap = plt.cm.autumn
+            n = len(snapshots)
+            for k, (gen, positions) in enumerate(snapshots):
+                color = cmap(k / max(n - 1, 1))
+                ys = f(positions)
+                ax1.scatter(positions, ys, color=color, s=18, alpha=0.6,
+                            zorder=3, edgecolors="none",
+                            label=f"Пок. {gen}" if k in (0, n - 1) else None)
+            # Добавляем цветовую шкалу поколений
+            sm = plt.cm.ScalarMappable(
+                cmap=cmap,
+                norm=plt.Normalize(vmin=snapshots[0][0], vmax=snapshots[-1][0]))
+            sm.set_array([])
+            cbar = fig.colorbar(sm, ax=ax1, shrink=0.7, pad=0.02)
+            cbar.set_label("Поколение", fontsize=7)
+            cbar.ax.tick_params(labelsize=6)
+
+        ax1.scatter([best_x], [best_y], color="red", zorder=5, s=60,
+                    marker="*", edgecolors="black", linewidths=0.5,
                     label=f"Минимум ({best_x:.3f}, {best_y:.3f})")
         ax1.set_title("Функция f(x) = x·sin(x)")
         ax1.set_xlabel("x")
         ax1.set_ylabel("f(x)")
-        ax1.legend(fontsize=8)
+        ax1.legend(fontsize=7)
         ax1.grid(True, alpha=0.3)
 
         # График сходимости
@@ -405,7 +454,7 @@ class ParamWindow(tk.Toplevel):
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         plt.close(fig)
 
-    def _draw_2d(self, best_x, best_y, best_val, history):
+    def _draw_2d(self, best_x, best_y, best_val, history, snapshots):
         """Рисует контурный график 2D-функции и график сходимости."""
         for widget in self.right.winfo_children():
             widget.destroy()
@@ -421,6 +470,25 @@ class ParamWindow(tk.Toplevel):
 
         cp = ax1.contourf(X, Y, Z, levels=40, cmap="viridis")
         fig.colorbar(cp, ax=ax1, shrink=0.8)
+
+        # Отображение популяции/роя по поколениям с цветовым градиентом
+        if snapshots:
+            cmap = plt.cm.coolwarm
+            n = len(snapshots)
+            for k, (gen, sx, sy) in enumerate(snapshots):
+                color = cmap(k / max(n - 1, 1))
+                ax1.scatter(sx, sy, color=color, s=14, alpha=0.7,
+                            zorder=3, edgecolors="none",
+                            label=f"Пок. {gen}" if k in (0, n - 1) else None)
+            sm = plt.cm.ScalarMappable(
+                cmap=cmap,
+                norm=plt.Normalize(vmin=snapshots[0][0], vmax=snapshots[-1][0]))
+            sm.set_array([])
+            cbar = fig.colorbar(sm, ax=ax1, shrink=0.5, pad=0.02,
+                                location="bottom")
+            cbar.set_label("Поколение", fontsize=7)
+            cbar.ax.tick_params(labelsize=6)
+
         ax1.scatter([best_x], [best_y], color="red", marker="*", s=150,
                     zorder=5, edgecolors="white",
                     label=f"Мин ({best_x:.3f}, {best_y:.3f})\n= {best_val:.6f}")
