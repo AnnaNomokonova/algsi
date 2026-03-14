@@ -6,12 +6,23 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# ─── Целевая функция ───────────────────────────────────────────────────────────
+# ─── Целевые функции ──────────────────────────────────────────────────────────
 
+# 1D: f(x) = x·sin(x) на [0, 20]
 X_MIN, X_MAX = 0.0, 20.0
 
 def f(x):
     return x * np.sin(x)
+
+# 2D: f(x,y) = -0.0001*(sin(x)*sin(y)*exp(|100 - sqrt(x²+y²)/π|) + 1)^0.1
+# на [-10, 10] × [-10, 10]
+X2_MIN, X2_MAX = -10.0, 10.0
+Y2_MIN, Y2_MAX = -10.0, 10.0
+
+def f2(x, y):
+    return -0.0001 * np.abs(np.sin(x) * np.sin(y)
+                            * np.exp(np.abs(100 - (np.sqrt(x**2 + y**2)) / np.pi))
+                            + 1) ** 0.1
 
 # ─── Генетический алгоритм (с арифметическим кроссовером) ─────────────────────
 
@@ -61,6 +72,55 @@ def genetic_algorithm(pop_size, generations, crossover_prob, mutation_prob, muta
     best_idx = np.argmin(f(population))
     return population[best_idx], f(population[best_idx]), best_history
 
+# ─── Генетический алгоритм 2D ────────────────────────────────────────────────
+
+def genetic_algorithm_2d(pop_size, generations, crossover_prob, mutation_prob, mutation_scale):
+    """
+    Минимизирует f2(x, y) на [X2_MIN, X2_MAX] × [Y2_MIN, Y2_MAX].
+    Возвращает (лучший_x, лучший_y, лучшее_значение, история_лучших_значений).
+    """
+    pop_x = np.random.uniform(X2_MIN, X2_MAX, pop_size)
+    pop_y = np.random.uniform(Y2_MIN, Y2_MAX, pop_size)
+    best_history = []
+
+    for _ in range(generations):
+        fitness = f2(pop_x, pop_y)
+
+        best_idx = np.argmin(fitness)
+        bx, by = pop_x[best_idx], pop_y[best_idx]
+
+        new_x = [bx]
+        new_y = [by]
+        while len(new_x) < pop_size:
+            idx_a = np.random.choice(pop_size, 3, replace=False)
+            idx_b = np.random.choice(pop_size, 3, replace=False)
+            pa_i = idx_a[np.argmin(fitness[idx_a])]
+            pb_i = idx_b[np.argmin(fitness[idx_b])]
+
+            if np.random.rand() < crossover_prob:
+                alpha = np.random.rand()
+                cx = alpha * pop_x[pa_i] + (1 - alpha) * pop_x[pb_i]
+                cy = alpha * pop_y[pa_i] + (1 - alpha) * pop_y[pb_i]
+            else:
+                cx, cy = pop_x[pa_i], pop_y[pa_i]
+
+            if np.random.rand() < mutation_prob:
+                cx += np.random.normal(0, mutation_scale)
+                cy += np.random.normal(0, mutation_scale)
+
+            cx = np.clip(cx, X2_MIN, X2_MAX)
+            cy = np.clip(cy, Y2_MIN, Y2_MAX)
+            new_x.append(cx)
+            new_y.append(cy)
+
+        pop_x = np.array(new_x)
+        pop_y = np.array(new_y)
+        best_history.append(f2(bx, by))
+
+    vals = f2(pop_x, pop_y)
+    best_idx = np.argmin(vals)
+    return pop_x[best_idx], pop_y[best_idx], vals[best_idx], best_history
+
 # ─── Роевой алгоритм PSO (с ограничением скорости) ───────────────────────────
 
 def pso(swarm_size, iterations, c1, c2, w, vmax):
@@ -109,6 +169,55 @@ def pso(swarm_size, iterations, c1, c2, w, vmax):
 
     return gbest_pos, pbest_val[gbest_idx], best_history
 
+# ─── Роевой алгоритм PSO 2D ──────────────────────────────────────────────────
+
+def pso_2d(swarm_size, iterations, c1, c2, w, vmax):
+    """
+    Минимизирует f2(x, y) на [X2_MIN, X2_MAX] × [Y2_MIN, Y2_MAX].
+    Возвращает (лучший_x, лучший_y, лучшее_значение, история_лучших_значений).
+    """
+    pos_x = np.random.uniform(X2_MIN, X2_MAX, swarm_size)
+    pos_y = np.random.uniform(Y2_MIN, Y2_MAX, swarm_size)
+    vel_x = np.random.uniform(-vmax, vmax, swarm_size)
+    vel_y = np.random.uniform(-vmax, vmax, swarm_size)
+
+    pbest_x = pos_x.copy()
+    pbest_y = pos_y.copy()
+    pbest_val = f2(pos_x, pos_y)
+
+    gbest_idx = np.argmin(pbest_val)
+    gbest_x = pbest_x[gbest_idx]
+    gbest_y = pbest_y[gbest_idx]
+    best_history = []
+
+    for i in range(iterations):
+        current_vmax = max(vmax * (1 - i / iterations), 0.05 * vmax)
+
+        r1 = np.random.rand(swarm_size)
+        r2 = np.random.rand(swarm_size)
+
+        vel_x = w * vel_x + c1 * r1 * (pbest_x - pos_x) + c2 * r2 * (gbest_x - pos_x)
+        vel_y = w * vel_y + c1 * r1 * (pbest_y - pos_y) + c2 * r2 * (gbest_y - pos_y)
+
+        vel_x = np.clip(vel_x, -current_vmax, current_vmax)
+        vel_y = np.clip(vel_y, -current_vmax, current_vmax)
+
+        pos_x = np.clip(pos_x + vel_x, X2_MIN, X2_MAX)
+        pos_y = np.clip(pos_y + vel_y, Y2_MIN, Y2_MAX)
+
+        val = f2(pos_x, pos_y)
+        improved = val < pbest_val
+        pbest_x[improved] = pos_x[improved]
+        pbest_y[improved] = pos_y[improved]
+        pbest_val[improved] = val[improved]
+
+        gbest_idx = np.argmin(pbest_val)
+        gbest_x = pbest_x[gbest_idx]
+        gbest_y = pbest_y[gbest_idx]
+        best_history.append(pbest_val[gbest_idx])
+
+    return gbest_x, gbest_y, pbest_val[gbest_idx], best_history
+
 # ─── GUI ──────────────────────────────────────────────────────────────────────
 
 class App(tk.Tk):
@@ -119,9 +228,22 @@ class App(tk.Tk):
         self._build_main()
 
     def _build_main(self):
-        """Главное окно: выбор метода."""
+        """Главное окно: выбор функции и метода."""
         frame = ttk.Frame(self, padding=30)
         frame.pack()
+
+        ttk.Label(frame, text="Выберите целевую функцию",
+                  font=("Arial", 13, "bold")).pack(pady=(0, 10))
+
+        self.func_var = tk.StringVar(value="1d")
+        ttk.Radiobutton(frame, text="f(x) = x·sin(x)",
+                        variable=self.func_var, value="1d").pack(anchor=tk.W)
+        ttk.Radiobutton(
+            frame,
+            text="f(x,y) = −0.0001·(sin(x)·sin(y)·exp(|100−√(x²+y²)/π|)+1)⁰·¹",
+            variable=self.func_var, value="2d").pack(anchor=tk.W)
+
+        ttk.Separator(frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=15)
 
         ttk.Label(frame, text="Выберите метод оптимизации",
                   font=("Arial", 13, "bold")).pack(pady=(0, 20))
@@ -132,10 +254,10 @@ class App(tk.Tk):
                    width=28, command=self._open_pso).pack(pady=6)
 
     def _open_ga(self):
-        ParamWindow(self, method="ga")
+        ParamWindow(self, method="ga", func=self.func_var.get())
 
     def _open_pso(self):
-        ParamWindow(self, method="pso")
+        ParamWindow(self, method="pso", func=self.func_var.get())
 
 
 class ParamWindow(tk.Toplevel):
@@ -158,9 +280,10 @@ class ParamWindow(tk.Toplevel):
         ("Макс. скорость Vmax", "vmax",        "3.0"),
     ]
 
-    def __init__(self, parent, method):
+    def __init__(self, parent, method, func="1d"):
         super().__init__(parent)
         self.method = method
+        self.func = func
         self.title("Генетический алгоритм" if method == "ga"
                    else "Роевой алгоритм (PSO)")
         self.resizable(False, False)
@@ -203,31 +326,53 @@ class ParamWindow(tk.Toplevel):
         self.update()
 
         try:
-            if self.method == "ga":
-                best_x, best_y, history = genetic_algorithm(
-                    pop_size=self._get("pop_size", int),
-                    generations=self._get("generations", int),
-                    crossover_prob=self._get("crossover_prob"),
-                    mutation_prob=self._get("mutation_prob"),
-                    mutation_scale=self._get("mutation_scale"),
-                )
+            if self.func == "2d":
+                if self.method == "ga":
+                    bx, by, bval, history = genetic_algorithm_2d(
+                        pop_size=self._get("pop_size", int),
+                        generations=self._get("generations", int),
+                        crossover_prob=self._get("crossover_prob"),
+                        mutation_prob=self._get("mutation_prob"),
+                        mutation_scale=self._get("mutation_scale"),
+                    )
+                else:
+                    bx, by, bval, history = pso_2d(
+                        swarm_size=self._get("swarm_size", int),
+                        iterations=self._get("iterations", int),
+                        c1=self._get("c1"),
+                        c2=self._get("c2"),
+                        w=self._get("w"),
+                        vmax=self._get("vmax"),
+                    )
+                self.status.config(
+                    text=f"Минимум: f({bx:.4f}, {by:.4f}) = {bval:.6f}",
+                    foreground="green")
+                self._draw_2d(bx, by, bval, history)
             else:
-                best_x, best_y, history = pso(
-                    swarm_size=self._get("swarm_size", int),
-                    iterations=self._get("iterations", int),
-                    c1=self._get("c1"),
-                    c2=self._get("c2"),
-                    w=self._get("w"),
-                    vmax=self._get("vmax"),
-                )
+                if self.method == "ga":
+                    best_x, best_y, history = genetic_algorithm(
+                        pop_size=self._get("pop_size", int),
+                        generations=self._get("generations", int),
+                        crossover_prob=self._get("crossover_prob"),
+                        mutation_prob=self._get("mutation_prob"),
+                        mutation_scale=self._get("mutation_scale"),
+                    )
+                else:
+                    best_x, best_y, history = pso(
+                        swarm_size=self._get("swarm_size", int),
+                        iterations=self._get("iterations", int),
+                        c1=self._get("c1"),
+                        c2=self._get("c2"),
+                        w=self._get("w"),
+                        vmax=self._get("vmax"),
+                    )
+                self.status.config(
+                    text=f"Минимум: f({best_x:.4f}) = {best_y:.4f}",
+                    foreground="green")
+                self._draw(best_x, best_y, history)
         except (ValueError, Exception) as e:
             self.status.config(text=f"Ошибка: {e}", foreground="red")
             return
-
-        self.status.config(
-            text=f"Минимум: f({best_x:.4f}) = {best_y:.4f}", foreground="green")
-
-        self._draw(best_x, best_y, history)
 
     def _draw(self, best_x, best_y, history):
         # Удаляем старый график, если есть
@@ -253,6 +398,42 @@ class ParamWindow(tk.Toplevel):
         ax2.set_title("Сходимость алгоритма")
         ax2.set_xlabel("Итерация / Поколение")
         ax2.set_ylabel("Лучшее значение f(x)")
+        ax2.grid(True, alpha=0.3)
+
+        canvas = FigureCanvasTkAgg(fig, master=self.right)
+        canvas.draw()
+        canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+        plt.close(fig)
+
+    def _draw_2d(self, best_x, best_y, best_val, history):
+        """Рисует контурный график 2D-функции и график сходимости."""
+        for widget in self.right.winfo_children():
+            widget.destroy()
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 4))
+        fig.tight_layout(pad=3)
+
+        # Контурный график
+        xs = np.linspace(X2_MIN, X2_MAX, 200)
+        ys = np.linspace(Y2_MIN, Y2_MAX, 200)
+        X, Y = np.meshgrid(xs, ys)
+        Z = f2(X, Y)
+
+        cp = ax1.contourf(X, Y, Z, levels=40, cmap="viridis")
+        fig.colorbar(cp, ax=ax1, shrink=0.8)
+        ax1.scatter([best_x], [best_y], color="red", marker="*", s=150,
+                    zorder=5, edgecolors="white",
+                    label=f"Мин ({best_x:.3f}, {best_y:.3f})\n= {best_val:.6f}")
+        ax1.set_title("f(x,y)")
+        ax1.set_xlabel("x")
+        ax1.set_ylabel("y")
+        ax1.legend(fontsize=7, loc="upper right")
+
+        # График сходимости
+        ax2.plot(history, color="darkorange")
+        ax2.set_title("Сходимость алгоритма")
+        ax2.set_xlabel("Итерация / Поколение")
+        ax2.set_ylabel("Лучшее значение f(x,y)")
         ax2.grid(True, alpha=0.3)
 
         canvas = FigureCanvasTkAgg(fig, master=self.right)
