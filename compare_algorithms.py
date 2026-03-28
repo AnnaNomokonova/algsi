@@ -1,65 +1,51 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
-import os
-from main import modified_algorithm_1d, modified_algorithm_2d
-from baseline_algorithms import baseline_algorithm_1d, baseline_algorithm_2d
+from genetic_algorithm import pso as ga_pso
+from genetic_algorithm_2d import pso_2d as ga2d_pso
+from baseline_algorithms import baseline_ga, baseline_pso
 
-# Ensure the output directory exists
-output_dir = './comparison_plots'
-if not os.path.exists(output_dir):
-    os.makedirs(output_dir)
-
-def run_trials(algo_modified, algo_baseline, n_trials=100, seed=42):
+# Function to run the experiments
+def run_experiment(algorithm, dimension, seed):
     np.random.seed(seed)
-    results_modified = []
-    results_baseline = []
-    for _ in range(n_trials):
-        # Simulate running the algorithms and collecting results
-        result_m = algo_modified()  # Placeholder for actual algorithm call
-        result_b = algo_baseline()  # Placeholder
-        results_modified.append(result_m)
-        results_baseline.append(result_b)
-    return np.array(results_modified), np.array(results_baseline)
+    # Simulate the optimization process (this is a placeholder, replace with actual calls to the algorithm)
+    best_values = []
+    # Assuming your algorithm returns a best value after some evaluation; replace the logic as needed
+    for _ in range(10):  # Repeat 10 times
+        best_value = algorithm(dimension)  # Replace with the actual function
+        best_values.append(best_value)
+    return best_values
 
-# Compare algorithms for 1D
-results_m1d, results_b1d = run_trials(modified_algorithm_1d, baseline_algorithm_1d)
+# Function to save plots
+def save_plots(results, title, filename):
+    mean_values = np.mean(results, axis=0)
+    std_values = np.std(results, axis=0)
 
-# Compare algorithms for 2D
-results_m2d, results_b2d = run_trials(modified_algorithm_2d, baseline_algorithm_2d)
+    plt.figure()
+    plt.errorbar(range(len(mean_values)), mean_values, yerr=std_values, label='Convergence')
+    plt.title(title)
+    plt.xlabel('Iterations')
+    plt.ylabel('Best Value')
+    plt.legend()
+    plt.savefig(filename)
+    plt.close()
 
-# Plot convergence for 1D
-plt.figure()
-plt.errorbar(range(len(results_m1d)), np.mean(results_m1d, axis=0), yerr=np.std(results_m1d, axis=0), label='Modified 1D')
-plt.errorbar(range(len(results_b1d)), np.mean(results_b1d, axis=0), yerr=np.std(results_b1d, axis=0), label='Baseline 1D')
-plt.title('Convergence Comparison - 1D')
-plt.xlabel('Iterations')
-plt.ylabel('Performance Metric')
-plt.legend()
-plt.savefig(os.path.join(output_dir, 'convergence_1D.png'))
-plt.close()
+def main():
+    seeds = np.random.randint(0, 10000, size=10)  # Fixed base seed variation
+    results_1d_ga = [run_experiment(ga_pso, 1, seed) for seed in seeds]
+    results_1d_baseline = [run_experiment(baseline_pso, 1, seed) for seed in seeds]
 
-# Boxplot for 1D
-plt.figure()
-plt.boxplot([results_m1d, results_b1d], labels=['Modified 1D', 'Baseline 1D'])
-plt.title('Boxplot Comparison - 1D')
-plt.ylabel('Performance Metric')
-plt.savefig(os.path.join(output_dir, 'boxplot_1D.png'))
-plt.close()
+    results_2d_ga = [run_experiment(ga2d_pso, 2, seed) for seed in seeds]
+    results_2d_baseline = [run_experiment(baseline_ga, 2, seed) for seed in seeds]
 
-# Repeat similar plots for 2D
-plt.figure()
-plt.errorbar(range(len(results_m2d)), np.mean(results_m2d, axis=0), yerr=np.std(results_m2d, axis=0), label='Modified 2D')
-plt.errorbar(range(len(results_b2d)), np.mean(results_b2d, axis=0), yerr=np.std(results_b2d, axis=0), label='Baseline 2D')
-plt.title('Convergence Comparison - 2D')
-plt.xlabel('Iterations')
-plt.ylabel('Performance Metric')
-plt.legend()
-plt.savefig(os.path.join(output_dir, 'convergence_2D.png'))
-plt.close()
+    # Ensure plots directory exists
+    os.makedirs('comparison_plots', exist_ok=True)
 
-plt.figure()
-plt.boxplot([results_m2d, results_b2d], labels=['Modified 2D', 'Baseline 2D'])
-plt.title('Boxplot Comparison - 2D')
-plt.ylabel('Performance Metric')
-plt.savefig(os.path.join(output_dir, 'boxplot_2D.png'))
-plt.close()
+    # Save plots
+    save_plots(results_1d_ga, '1D GA Convergence', 'comparison_plots/1d_ga_convergence.png')
+    save_plots(results_1d_baseline, '1D Baseline PSO Convergence', 'comparison_plots/1d_baseline_convergence.png')
+    save_plots(results_2d_ga, '2D GA Convergence', 'comparison_plots/2d_ga_convergence.png')
+    save_plots(results_2d_baseline, '2D Baseline PSO Convergence', 'comparison_plots/2d_baseline_convergence.png')
+
+if __name__ == "__main__":
+    main()
