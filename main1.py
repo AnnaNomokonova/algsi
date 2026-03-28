@@ -1,47 +1,75 @@
 import tkinter as tk
-from baseline_algorithms import (genetic_algorithm_baseline, genetic_algorithm_2d_baseline, pso_baseline, pso_2d_baseline)
+from tkinter import ttk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# Create the main window
-root = tk.Tk()
-root.title('Baseline Algorithms GUI')
-root.geometry('400x300')
+def genetic_algorithm_baseline():
+    # Placeholder for the genetic algorithm baseline implementation
+    pass
 
-# Function to execute genetic_algorithm_baseline
-def execute_genetic_algorithm_baseline():
-    result = genetic_algorithm_baseline()
-    result_label.config(text=result)
+def genetic_algorithm_2d_baseline():
+    # Placeholder for the 2D genetic algorithm baseline implementation
+    pass
 
-# Function to execute genetic_algorithm_2d_baseline
-def execute_genetic_algorithm_2d_baseline():
-    result = genetic_algorithm_2d_baseline()
-    result_label.config(text=result)
+def pso_baseline():
+    # Placeholder for the PSO baseline implementation
+    pass
 
-# Function to execute pso_baseline
-def execute_pso_baseline():
-    result = pso_baseline()
-    result_label.config(text=result)
+def pso_2d_baseline():
+    # Placeholder for the 2D PSO baseline implementation
+    pass
 
-# Function to execute pso_2d_baseline
-def execute_pso_2d_baseline():
-    result = pso_2d_baseline()
-    result_label.config(text=result)
+def run_algorithm(algorithm, dimension):
+    # Logic to run the selected algorithm
+    if algorithm == 'Genetic Algorithm':
+        if dimension == '1D':
+            genetic_algorithm_baseline()
+        else:
+            genetic_algorithm_2d_baseline()
+    elif algorithm == 'PSO':
+        if dimension == '1D':
+            pso_baseline()
+        else:
+            pso_2d_baseline()
 
-# Create buttons for each algorithm
-btn1 = tk.Button(root, text='Genetic Algorithm Baseline', command=execute_genetic_algorithm_baseline)
-btn1.pack(pady=10)
 
-btn2 = tk.Button(root, text='Genetic Algorithm 2D Baseline', command=execute_genetic_algorithm_2d_baseline)
-bt2.pack(pady=10)
+class Application(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Algorithm Selector")
+        
+        self.algorithm_var = tk.StringVar(value='Genetic Algorithm')
+        self.dimension_var = tk.StringVar(value='1D')
 
-btn3 = tk.Button(root, text='PSO Baseline', command=execute_pso_baseline)
-bt3.pack(pady=10)
+        # Algorithm Selection
+        algorithm_label = ttk.Label(self, text="Select Algorithm:")
+        algorithm_label.pack(pady=10)
+        algorithm_combobox = ttk.Combobox(self, textvariable=self.algorithm_var,
+                                            values=['Genetic Algorithm', 'PSO'])
+        algorithm_combobox.pack()
 
-btn4 = tk.Button(root, text='PSO 2D Baseline', command=execute_pso_2d_baseline)
-bt4.pack(pady=10)
+        # Dimension Selection
+        dimension_label = ttk.Label(self, text="Select Dimension:")
+        dimension_label.pack(pady=10)
+        dimension_combobox = ttk.Combobox(self, textvariable=self.dimension_var,
+                                            values=['1D', '2D'])
+        dimension_combobox.pack()
 
-# Label to display results
-result_label = tk.Label(root, text='Results will be shown here')
-result_label.pack(pady=20)
+        # Run Button
+        run_button = ttk.Button(self, text="Run", command=self.run_selected_algorithm)
+        run_button.pack(pady=20)
 
-# Run the application
-root.mainloop()
+        # Plotting Area
+        self.figure = plt.Figure(figsize=(5, 4), dpi=100)
+        self.canvas = FigureCanvasTkAgg(self.figure, master=self)
+        self.canvas.get_tk_widget().pack()
+
+    def run_selected_algorithm(self):
+        algorithm = self.algorithm_var.get()
+        dimension = self.dimension_var.get()
+        run_algorithm(algorithm, dimension)
+        # Add code here to plot results on self.figure
+
+if __name__ == "__main__":
+    app = Application()
+    app.mainloop()
