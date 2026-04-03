@@ -14,6 +14,21 @@ from main import (
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Параметры «классических» версий алгоритмов
+# ──────────────────────────────────────────────────────────────────────────────
+
+# Для классического GA: арифметический кроссовер отключён
+CLASSIC_GA_CROSSOVER_PROB = 0.0
+
+# Для классического PSO: стандартные коэффициенты без адаптации скорости
+CLASSIC_PSO_C1 = 1.5
+CLASSIC_PSO_C2 = 1.5
+CLASSIC_PSO_W  = 0.5
+
+# Цвета для линий/столбцов на графиках
+_PLOT_COLORS = ["steelblue", "darkorange"]
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Вспомогательная функция: запуск одного эксперимента
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -34,7 +49,7 @@ def _run_trials(is_ga, func_type, algo_type, vals, n_trials):
         if is_ga:
             pop_size   = int(vals[0])
             generations = int(vals[1])
-            crossover_prob = vals[2] if algo_type == "mod" else 0.0
+            crossover_prob = vals[2] if algo_type == "mod" else CLASSIC_GA_CROSSOVER_PROB
             mutation_prob  = vals[3]
             mutation_scale = vals[4]
 
@@ -54,8 +69,8 @@ def _run_trials(is_ga, func_type, algo_type, vals, n_trials):
             if algo_type == "mod":
                 c1, c2, w, vmax = vals[2], vals[3], vals[4], vals[5]
             else:
-                # Классический PSO: фиксированные "стандартные" коэффициенты
-                c1, c2, w, vmax = 1.5, 1.5, 0.5, vals[5]
+                # Классический PSO: фиксированные «стандартные» коэффициенты
+                c1, c2, w, vmax = CLASSIC_PSO_C1, CLASSIC_PSO_C2, CLASSIC_PSO_W, vals[5]
 
             if func_type == "1d":
                 gbest, gval, hist, _ = pso(
@@ -281,7 +296,7 @@ class AnalyzerApp(tk.Tk):
         fig, (ax_hist, ax_conv) = plt.subplots(1, 2, figsize=(11, 4))
         fig.tight_layout(pad=3.5)
 
-        colors = ["steelblue", "darkorange", "seagreen", "crimson"]
+        colors = _PLOT_COLORS
 
         # ── График 1: гистограмма распределения минимумов ──
         for idx, (label, bests, _) in enumerate(results):
